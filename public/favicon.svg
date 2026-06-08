@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#3b1d6b"/>
+      <stop offset="100%" stop-color="#0d0418"/>
+    </radialGradient>
+    <linearGradient id="rune" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c8a8ff"/>
+      <stop offset="100%" stop-color="#7d4dff"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+
+  <g stroke="url(#rune)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none" filter="url(#glow)">
+    <circle cx="32" cy="32" r="20" stroke-opacity="0.45"/>
+    <path d="M32 14 L32 50"/>
+    <path d="M22 22 L42 42"/>
+    <path d="M42 22 L22 42"/>
+    <circle cx="32" cy="32" r="4" fill="url(#rune)"/>
+  </g>
+
+  <g fill="#c8a8ff" opacity="0.85">
+    <circle cx="32" cy="10" r="1.4"/>
+    <circle cx="54" cy="32" r="1.4"/>
+    <circle cx="32" cy="54" r="1.4"/>
+    <circle cx="10" cy="32" r="1.4"/>
+  </g>
+</svg>
