@@ -6,6 +6,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useGlyphwrightAccount, shortAddr } from "@/lib/wallet";
 import { formatGen } from "@/lib/glyphwright.contract";
 
@@ -102,6 +110,48 @@ export function AppHeader() {
           {acc.error}
         </div>
       ) : null}
+
+      <AlertDialog
+        open={acc.needsMetaMask}
+        onOpenChange={(open) => {
+          if (!open) acc.dismissMetaMaskModal();
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>MetaMask Required</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <span>
+                  For the best experience with Glyphwright, we recommend using
+                  <strong> MetaMask</strong> as your wallet.
+                </span>
+                <span className="block">
+                  If you already have it installed, make sure it's set as your
+                  active browser extension.
+                </span>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-2">
+            <Button
+              onClick={() => {
+                window.open("https://metamask.io/download/", "_blank");
+              }}
+            >
+              Download MetaMask
+            </Button>
+          </div>
+          <div className="flex justify-center">
+            <button
+              onClick={acc.dismissMetaMaskModal}
+              className="text-xs text-muted-foreground hover:text-foreground transition"
+            >
+              I'll do this later
+            </button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

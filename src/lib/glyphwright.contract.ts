@@ -91,8 +91,17 @@ export class WalletNotConnectedError extends Error {
 
 export class NoWalletError extends Error {
   constructor() {
-    super("No EVM wallet detected. Install MetaMask to continue.");
+    super("MetaMask is recommended for the best Glyphwright experience.");
     this.name = "NoWalletError";
+  }
+}
+
+export class WalletNotMetaMaskError extends Error {
+  constructor() {
+    super(
+      "Glyphwright works best with MetaMask. Please switch to MetaMask and try again.",
+    );
+    this.name = "WalletNotMetaMaskError";
   }
 }
 
@@ -141,6 +150,18 @@ export function clearWalletState(): void {
 export async function connectWallet(): Promise<ViemAddress> {
   if (!isBrowser() || !window.ethereum) {
     throw new NoWalletError();
+  }
+  // Verify the wallet actually supports the Snap API (MetaMask or
+  // MetaMask-compatible). Non-MetaMask wallets like Rabby expose an
+  // EVM provider but cannot install the GenLayer Snap, so we catch
+  // that early with a helpful message.
+  try {
+    await window.ethereum.request({
+      method: "wallet_getSnaps",
+      params: [],
+    });
+  } catch {
+    throw new WalletNotMetaMaskError();
   }
   const accs = (await window.ethereum.request({
     method: "eth_requestAccounts",
