@@ -219,13 +219,23 @@ class Glyphwright(gl.Contract):
 
         raw = gl.eq_principle.prompt_comparative(
             judge,
-            "Both outputs must be valid JSON with keys spellName, incantation, "
-            "description, and a votes array of exactly 5 entries. Each vote "
-            "must have: validator (string), power (int 0-100), mana_cost "
-            "(int 0-100), element (string), rarity (string), approve (bool), "
-            "reasoning (string). Exact wording, score numbers, approval "
-            "bools, JSON whitespace, and key order may all differ. The "
-            "contract aggregates the final consensus after parsing.",
+            "Both outputs must individually represent a well-crafted, "
+            "internally consistent spell for the same player intent.\n"
+            "1. Valid JSON with the required keys.\n"
+            "2. spellName, incantation, description must be coherent and "
+            "thematically fit the intent.\n"
+            "3. votes array must have exactly 5 entries, one per persona "
+            "in order. Each vote must have the required fields with "
+            "valid types.\n"
+            "4. Each validator's vote must be in-character for that persona "
+            "(e.g., Pyromancer Ignis favors bold/aggressive spells).\n"
+            "5. power and mana_cost must be integers 1-100.\n"
+            "6. element must be one of the allowed elements; rarity must "
+            "be one of the allowed rarities.\n"
+            "7. approve must be a boolean; reasoning must be a string.\n"
+            "8. The outputs DO NOT need to match each other — different "
+            "validators may produce different but equally valid spells. "
+            "The contract aggregates the final consensus after parsing.",
         )
         d = _to_dict(raw)
 
