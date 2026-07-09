@@ -214,51 +214,25 @@ class Glyphwright(gl.Contract):
             f'}}'
         )
 
-        def judge() -> str:
+        def judge():
             return gl.nondet.exec_prompt(prompt, response_format="json")
 
-        def leader_fn() -> dict:
-            return json.loads(judge())
-
-        def validator_fn(leader_result) -> bool:
-            if not isinstance(leader_result, gl.vm.Return):
-                return False
-            leader_data = leader_result.calldata
-            my_data = leader_fn()
-
-            # Compare spell identity fields — paraphrasing allowed, but
-            # core meaning must match the same player intent.
-            # Names can differ; validators vote on the intent, not the name.
-            # Only compare if both outputs are structurally valid.
-
-            l_votes = leader_data.get("votes", [])
-            m_votes = my_data.get("votes", [])
-            if len(l_votes) != len(VALIDATORS) or len(m_votes) != len(VALIDATORS):
-                return False
-
-            for i in range(len(VALIDATORS)):
-                lv = l_votes[i] if isinstance(l_votes[i], dict) else {}
-                mv = m_votes[i] if isinstance(m_votes[i], dict) else {}
-                # approve: must match exactly
-                if bool(lv.get("approve", False)) != bool(mv.get("approve", False)):
-                    return False
-                # element, rarity: must match exactly
-                if str(lv.get("element", "")) != str(mv.get("element", "")):
-                    return False
-                if str(lv.get("rarity", "")) != str(mv.get("rarity", "")):
-                    return False
-                # power, mana_cost: within 15 points
-                lp = int(lv.get("power", 0) or 0)
-                mp = int(mv.get("power", 0) or 0)
-                if abs(lp - mp) > 15:
-                    return False
-                lm = int(lv.get("mana_cost", 0) or 0)
-                mm = int(mv.get("mana_cost", 0) or 0)
-                if abs(lm - mm) > 15:
-                    return False
-            return True
-
-        raw = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
+        raw = gl.eq_principle.prompt_comparative(
+            judge,
+            "Both outputs are valid spell results for the same player intent. "
+            "They are semantically equivalent if each individually:\n"
+            "1. Is valid JSON with keys: spellName (str), incantation (str), "
+            "description (str), votes (array of 5 objects).\n"
+            "2. Each vote has: validator (str), power (1-100), mana_cost "
+            "(1-100), element (str), rarity (str), approve (bool), "
+            "reasoning (str).\n"
+            "3. Each vote is in-character for its persona.\n"
+            "4. element is one of fire/water/earth/air/shadow/light/arcane/"
+            "nature/void; rarity is one of common/uncommon/rare/epic/legendary.\n"
+            "The two outputs DO NOT need identical values — different "
+            "creative interpretations of the same intent are EQUIVALENT. "
+            "The contract aggregates final consensus after parsing.",
+        )
         d = _to_dict(raw)
 
         spell_name = str(d.get("spellName", ""))[:MAX_SPELL_NAME_LEN]
