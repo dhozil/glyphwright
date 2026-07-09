@@ -31,7 +31,7 @@ const CONTRACT_ADDR_KEY = "glyphwright:contract:address";
 
 // Deployed on GenLayer Studionet. Set via VITE_GLYPHWRIGHT_CONTRACT or
 // falls back to this hardcoded address from the last known deployment.
-const FALLBACK_CONTRACT = "0x49A3993D5ED1Fbf35499232caBF94c3b7a420D8f";
+const FALLBACK_CONTRACT = "0xd13645b92637bFf3EC97ada2b7C24dDf9EfB30AD";
 
 const ENV_ADDR =
   (typeof import.meta !== "undefined" &&
