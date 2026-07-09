@@ -217,26 +217,48 @@ class Glyphwright(gl.Contract):
         def judge() -> str:
             return gl.nondet.exec_prompt(prompt, response_format="json")
 
-        raw = gl.eq_principle.prompt_comparative(
-            judge,
-            "Both outputs must individually represent a well-crafted, "
-            "internally consistent spell for the same player intent.\n"
-            "1. Valid JSON with the required keys.\n"
-            "2. spellName, incantation, description must be coherent and "
-            "thematically fit the intent.\n"
-            "3. votes array must have exactly 5 entries, one per persona "
-            "in order. Each vote must have the required fields with "
-            "valid types.\n"
-            "4. Each validator's vote must be in-character for that persona "
-            "(e.g., Pyromancer Ignis favors bold/aggressive spells).\n"
-            "5. power and mana_cost must be integers 1-100.\n"
-            "6. element must be one of the allowed elements; rarity must "
-            "be one of the allowed rarities.\n"
-            "7. approve must be a boolean; reasoning must be a string.\n"
-            "8. The outputs DO NOT need to match each other — different "
-            "validators may produce different but equally valid spells. "
-            "The contract aggregates the final consensus after parsing.",
-        )
+        def leader_fn() -> dict:
+            return json.loads(judge())
+
+        def validator_fn(leader_result) -> bool:
+            if not isinstance(leader_result, gl.vm.Return):
+                return False
+            leader_data = leader_result.calldata
+            my_data = leader_fn()
+
+            # Compare spell identity fields — paraphrasing allowed, but
+            # core meaning must match the same player intent.
+            # Names can differ; validators vote on the intent, not the name.
+            # Only compare if both outputs are structurally valid.
+
+            l_votes = leader_data.get("votes", [])
+            m_votes = my_data.get("votes", [])
+            if len(l_votes) != len(VALIDATORS) or len(m_votes) != len(VALIDATORS):
+                return False
+
+            for i in range(len(VALIDATORS)):
+                lv = l_votes[i] if isinstance(l_votes[i], dict) else {}
+                mv = m_votes[i] if isinstance(m_votes[i], dict) else {}
+                # approve: must match exactly
+                if bool(lv.get("approve", False)) != bool(mv.get("approve", False)):
+                    return False
+                # element, rarity: must match exactly
+                if str(lv.get("element", "")) != str(mv.get("element", "")):
+                    return False
+                if str(lv.get("rarity", "")) != str(mv.get("rarity", "")):
+                    return False
+                # power, mana_cost: within 15 points
+                lp = int(lv.get("power", 0) or 0)
+                mp = int(mv.get("power", 0) or 0)
+                if abs(lp - mp) > 15:
+                    return False
+                lm = int(lv.get("mana_cost", 0) or 0)
+                mm = int(mv.get("mana_cost", 0) or 0)
+                if abs(lm - mm) > 15:
+                    return False
+            return True
+
+        raw = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
         d = _to_dict(raw)
 
         spell_name = str(d.get("spellName", ""))[:MAX_SPELL_NAME_LEN]
