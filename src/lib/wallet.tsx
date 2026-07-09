@@ -9,13 +9,18 @@ import {
 } from "react";
 import {
   NoWalletError,
-  WalletNotMetaMaskError,
   balanceOf,
   clearWalletState,
   connectWallet,
+  connectBurnerWallet,
   getContractAddress,
   loadStoredAddress,
   setContractAddress,
+  isBurnerMode,
+  getWalletMode,
+  setWalletMode,
+  disconnectBurner,
+  type WalletMode,
 } from "./glyphwright.contract";
 
 export { GENLAYER_CHAIN, shortAddr } from "./genlayer-chain";
@@ -30,7 +35,9 @@ type WalletState = {
   connecting: boolean;
   error: string | null;
   needsMetaMask: boolean;
+  walletMode: WalletMode;
   connect: () => Promise<void>;
+  connectBurner: () => Promise<void>;
   disconnect: () => void;
   refreshBalance: () => Promise<void>;
   configureContract: (addr: string) => void;
@@ -50,11 +57,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsMetaMask, setNeedsMetaMask] = useState(false);
+  const [walletMode, setWalletModeState] = useState<WalletMode>(
+    getWalletMode(),
+  );
 
   // Restore persisted address + listen for wallet account changes.
   useEffect(() => {
     if (typeof window === "undefined") return;
     setContractAddrState(getContractAddress());
+    setWalletModeState(getWalletMode());
     const stored = loadStoredAddress();
     if (stored) setAddress(stored);
   }, []);
@@ -112,15 +123,29 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       const addr = await connectWallet();
       setAddress(addr);
+      setWalletModeState(getWalletMode());
     } catch (e) {
-      if (
-        e instanceof WalletNotMetaMaskError ||
-        e instanceof NoWalletError
-      ) {
+      if (e instanceof NoWalletError) {
         setNeedsMetaMask(true);
       } else {
         setError((e as Error).message);
       }
+    } finally {
+      setConnecting(false);
+    }
+  }, []);
+
+  const connectBurner = useCallback(async () => {
+    setWalletMode("burner");
+    setWalletModeState("burner");
+    setError(null);
+    setNeedsMetaMask(false);
+    setConnecting(true);
+    try {
+      const addr = await connectBurnerWallet();
+      setAddress(addr);
+    } catch (e) {
+      setError((e as Error).message);
     } finally {
       setConnecting(false);
     }
@@ -132,9 +157,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const disconnect = useCallback(() => {
     clearWalletState();
+    disconnectBurner();
     setAddress(null);
     setBalance(null);
     setError(null);
+    setWalletModeState("metamask");
   }, []);
 
   const configureContract = useCallback((addr: string) => {
@@ -151,7 +178,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       connecting,
       error,
       needsMetaMask,
+      walletMode,
       connect,
+      connectBurner,
       disconnect,
       refreshBalance,
       configureContract,
@@ -164,7 +193,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       connecting,
       error,
       needsMetaMask,
+      walletMode,
       connect,
+      connectBurner,
       disconnect,
       refreshBalance,
       configureContract,

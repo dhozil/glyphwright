@@ -11,10 +11,19 @@
 // client per connected EVM address; the address is the player's
 // identity and is also the contract `gl.message.sender_address`.
 
-import { createClient } from "genlayer-js";
+import { createClient, createAccount, generatePrivateKey } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 import { TransactionStatus, type TransactionHash } from "genlayer-js/types";
 import type { Address as ViemAddress } from "viem";
+import {
+  getWalletMode,
+  setWalletMode,
+  ensureBurner,
+  tryLoadBurner,
+  clearBurner,
+} from "./burner";
+export type { WalletMode } from "./burner";
+export { getWalletMode, setWalletMode } from "./burner";
 
 // ---------- Contract address ----------------------------------------------
 
@@ -22,7 +31,7 @@ const CONTRACT_ADDR_KEY = "glyphwright:contract:address";
 
 // Deployed on GenLayer Studionet. Set via VITE_GLYPHWRIGHT_CONTRACT or
 // falls back to this hardcoded address from the last known deployment.
-const FALLBACK_CONTRACT = "0x11Bac5fE29e8EE3a353eCa5133e09A82E55949aE";
+const FALLBACK_CONTRACT = "0x49A3993D5ED1Fbf35499232caBF94c3b7a420D8f";
 
 const ENV_ADDR =
   (typeof import.meta !== "undefined" &&
@@ -96,13 +105,14 @@ export class NoWalletError extends Error {
   }
 }
 
-export class WalletNotMetaMaskError extends Error {
-  constructor() {
-    super(
-      "Glyphwright works best with MetaMask. Please switch to MetaMask and try again.",
-    );
-    this.name = "WalletNotMetaMaskError";
-  }
+export async function connectBurnerWallet(): Promise<ViemAddress> {
+  const addr = ensureBurner();
+  saveStoredAddress(addr);
+  return addr;
+}
+
+export function isBurnerMode(): boolean {
+  return getWalletMode() === "burner";
 }
 
 export function loadStoredAddress(): ViemAddress | null {
@@ -121,11 +131,17 @@ let cachedClient: ReturnType<typeof createClient> | null = null;
 let cachedFor: ViemAddress | null = null;
 let connectedOnce = false;
 
-function buildClient(addr: ViemAddress) {
-  if (cachedClient && cachedFor === addr) return cachedClient;
+function getProvider(): Eth | null {
+  if (typeof window === "undefined" || !window.ethereum) return null;
+  return window.ethereum;
+}
+
+function buildClient(addr: ViemAddress, provider?: Eth) {
+  if (cachedClient && cachedFor === addr && !connectedOnce) return cachedClient;
   cachedClient = createClient({
     chain: studionet,
     account: addr,
+    ...(provider ? { provider } : {}),
   });
   cachedFor = addr;
   connectedOnce = false;
@@ -135,7 +151,9 @@ function buildClient(addr: ViemAddress) {
 function getClient(addr?: ViemAddress | null): ReturnType<typeof createClient> {
   const target = addr ?? loadStoredAddress();
   if (!target) throw new WalletNotConnectedError();
-  return buildClient(target);
+  return cachedClient && cachedFor === target
+    ? cachedClient
+    : buildClient(target, getProvider() ?? undefined);
 }
 
 /** Reset state when the user disconnects or switches accounts. */
@@ -146,46 +164,63 @@ export function clearWalletState(): void {
   saveStoredAddress(null);
 }
 
-/** Prompt MetaMask for accounts. Returns the connected address. */
+export function disconnectBurner(): void {
+  clearWalletState();
+  clearBurner();
+}
+
+/** Prompt EIP-1193 wallet for accounts. Works with MetaMask, Rabby,
+ *  Coinbase, Brave, and any other EIP-1193 compatible wallet. */
 export async function connectWallet(): Promise<ViemAddress> {
-  if (!isBrowser() || !window.ethereum) {
-    throw new NoWalletError();
+  if (!isBrowser()) throw new NoWalletError();
+
+  if (getWalletMode() === "burner") {
+    return connectBurnerWallet();
   }
-  // Verify the wallet actually supports the Snap API (MetaMask or
-  // MetaMask-compatible). Non-MetaMask wallets like Rabby expose an
-  // EVM provider but cannot install the GenLayer Snap, so we catch
-  // that early with a helpful message.
-  try {
-    await window.ethereum.request({
-      method: "wallet_getSnaps",
-      params: [],
-    });
-  } catch {
-    throw new WalletNotMetaMaskError();
-  }
-  const accs = (await window.ethereum.request({
+
+  const provider = getProvider();
+  if (!provider) throw new NoWalletError();
+
+  const accs = (await provider.request({
     method: "eth_requestAccounts",
   })) as string[];
   const addr = accs?.[0];
   if (!addr || !/^0x[0-9a-fA-F]{40}$/.test(addr)) {
-    throw new Error("MetaMask returned no account.");
+    throw new Error("No account returned from wallet.");
   }
   saveStoredAddress(addr as ViemAddress);
-  buildClient(addr as ViemAddress);
+  buildClient(addr as ViemAddress, provider);
   return addr as ViemAddress;
 }
 
-/** Ensure the underlying wallet is on Studionet. Idempotent — safe to
- *  call before every write. genlayer-js handles the Snap install +
- *  chain switch under the hood. */
+/** Ensure the network is correct and (for MetaMask) install Snap.
+ *  Non-MetaMask wallets (Rabby, Coinbase, etc.) use the standard
+ *  EIP-1193 provider for signing — no Snap needed. */
 async function ensureConnected(addr: ViemAddress): Promise<void> {
   if (connectedOnce && cachedFor === addr) return;
-  const client = buildClient(addr);
-  // `client.connect("studionet")` switches the underlying EVM wallet to
-  // GenLayer Studionet and installs the GenLayer Snap if needed.
-  await (client as unknown as {
-    connect: (network: string) => Promise<void>;
-  }).connect("studionet");
+
+  if (getWalletMode() === "burner") {
+    const burner = tryLoadBurner();
+    if (!burner) throw new Error("burner account not found");
+    const account = createAccount(burner.privKey);
+    cachedClient = createClient({ chain: studionet, account });
+    cachedFor = addr;
+    connectedOnce = true;
+    return;
+  }
+
+  const provider = getProvider();
+  if (!provider) throw new WalletNotConnectedError();
+
+  // EIP-1193 wallet — try Snap install for MetaMask, but don't block
+  // if it fails (non-MetaMask wallet still works via standard provider).
+  try {
+    await (buildClient(addr, provider) as unknown as {
+      connect: (network: string) => Promise<void>;
+    }).connect("studionet");
+  } catch {
+    // Non-MetaMask wallet — standard eth_sendTransaction handles signing
+  }
   connectedOnce = true;
 }
 
