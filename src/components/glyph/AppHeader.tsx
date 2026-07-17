@@ -56,6 +56,11 @@ export function AppHeader() {
         </div>
 
         <div className="flex items-center gap-2">
+          {acc.walletMode === "burner" ? (
+            <Badge className="bg-amber-500/20 text-amber-300 border-amber-400/40 hidden sm:inline-flex text-[10px]">
+              Burner
+            </Badge>
+          ) : null}
           {acc.address ? (
             <>
               <div className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-primary/10 border border-primary/30 text-xs">
@@ -119,16 +124,12 @@ export function AppHeader() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>MetaMask Required</AlertDialogTitle>
+            <AlertDialogTitle>Connect a Wallet</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <span>
-                  For the best experience with Glyphwright, we recommend using
-                  <strong> MetaMask</strong> as your wallet.
-                </span>
-                <span className="block">
-                  If you already have it installed, make sure it's set as your
-                  active browser extension.
+                  Glyphwright uses the GenLayer Snap for the best experience.
+                  Choose how you'd like to connect:
                 </span>
               </div>
             </AlertDialogDescription>
@@ -136,10 +137,22 @@ export function AppHeader() {
           <div className="flex flex-col gap-2">
             <Button
               onClick={() => {
+                acc.dismissMetaMaskModal();
                 window.open("https://metamask.io/download/", "_blank");
               }}
+              className="w-full"
             >
-              Download MetaMask
+              Install MetaMask (Recommended)
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                acc.dismissMetaMaskModal();
+                acc.connectBurner();
+              }}
+              className="w-full"
+            >
+              Continue with Temporary Wallet
             </Button>
           </div>
           <div className="flex justify-center">
@@ -147,7 +160,7 @@ export function AppHeader() {
               onClick={acc.dismissMetaMaskModal}
               className="text-xs text-muted-foreground hover:text-foreground transition"
             >
-              I'll do this later
+              Cancel
             </button>
           </div>
         </AlertDialogContent>

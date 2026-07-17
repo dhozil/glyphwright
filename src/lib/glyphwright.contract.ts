@@ -13,7 +13,7 @@
 
 import { createClient, createAccount, generatePrivateKey } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
-import { TransactionStatus, type TransactionHash } from "genlayer-js/types";
+import { TransactionStatus, type TransactionHash, type GenLayerTransaction } from "genlayer-js/types";
 import type { Address as ViemAddress } from "viem";
 import {
   getWalletMode,
@@ -450,7 +450,7 @@ async function writeAndWait(
   functionName: string,
   args: unknown[],
   value: bigint = 0n,
-): Promise<{ hash: TransactionHash; tx: unknown }> {
+): Promise<{ hash: TransactionHash; tx: GenLayerTransaction }> {
   const addr = loadStoredAddress();
   if (!addr) throw new WalletNotConnectedError();
   await ensureConnected(addr);
@@ -478,20 +478,21 @@ export async function forgeSpell(intent: string): Promise<ForgeResult> {
   if (trimmed.length < 5 || trimmed.length > 400) {
     throw new Error("intent must be 5..400 chars");
   }
-  await writeAndWait("forge_spell", [trimmed]);
-  const addr = loadStoredAddress();
-  if (!addr) throw new WalletNotConnectedError();
+  const { tx } = await writeAndWait("forge_spell", [trimmed]);
 
-  // Storage state can lag a beat behind the receipt. Poll a few times
-  // before giving up so the UI doesn't fail on a race that resolves
-  // within seconds.
-  for (let i = 0; i < 8; i++) {
-    const result = await getLastForge(addr);
+  // The contract returns json.dumps(attempt) directly. Read it from the
+  // leader receipt so each forge correlates to its own transaction
+  // rather than polling get_last_forge (which could return a newer
+  // forge if two runs overlap).
+  const leaderResult =
+    tx?.consensus_data?.leader_receipt?.[0]?.result;
+  if (leaderResult) {
+    const parsed = parseJsonOrNull<Record<string, unknown>>(leaderResult);
+    const result = coerceForgeResult(parsed);
     if (result) return result;
-    await new Promise((r) => setTimeout(r, 1500));
   }
   throw new Error(
-    "Forge transaction was accepted but the receipt is not visible yet. Check your Grimoire in a moment.",
+    "Forge transaction was accepted but the return value is not available yet. Check your Grimoire in a moment.",
   );
 }
 
