@@ -486,8 +486,22 @@ export async function forgeSpell(intent: string): Promise<ForgeResult> {
   // forge if two runs overlap).
   const leaderResult =
     tx?.consensus_data?.leader_receipt?.[0]?.result;
-  if (leaderResult) {
-    const parsed = parseJsonOrNull<Record<string, unknown>>(leaderResult);
+
+  // decodeLocalnetTransaction transforms the raw string into
+  // { status: "FINISHED_WITH_RETURN", payload: "<json string>" }
+  let rawJson: string | undefined;
+  if (typeof leaderResult === "string") {
+    rawJson = leaderResult;
+  } else if (
+    leaderResult &&
+    typeof leaderResult === "object" &&
+    "payload" in leaderResult
+  ) {
+    rawJson = (leaderResult as { payload: string }).payload;
+  }
+
+  if (rawJson) {
+    const parsed = parseJsonOrNull<Record<string, unknown>>(rawJson);
     const result = coerceForgeResult(parsed);
     if (result) return result;
   }
