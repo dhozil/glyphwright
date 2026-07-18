@@ -487,22 +487,36 @@ export async function forgeSpell(intent: string): Promise<ForgeResult> {
   const leaderResult =
     tx?.consensus_data?.leader_receipt?.[0]?.result;
 
-  // decodeLocalnetTransaction transforms the raw string into
-  // { status: "FINISHED_WITH_RETURN", payload: "<json string>" }
+  // decodeLocalnetTransaction transforms the raw base64 into
+  // { status: "return", payload: { readable: "<double-encoded json>" } }
+  // payload.readable is a JSON string containing another JSON string
+  // (the contract's json.dumps return wrapped by GenVM encoding).
   let rawJson: string | undefined;
   if (typeof leaderResult === "string") {
     rawJson = leaderResult;
-  } else if (
-    leaderResult &&
-    typeof leaderResult === "object" &&
-    "payload" in leaderResult
-  ) {
-    rawJson = (leaderResult as { payload: string }).payload;
+  } else if (leaderResult && typeof leaderResult === "object") {
+    if ("payload" in leaderResult) {
+      const p = (leaderResult as { payload: unknown }).payload;
+      if (typeof p === "string") rawJson = p;
+      else if (p && typeof p === "object" && "readable" in p)
+        rawJson = (p as { readable: string }).readable;
+    } else if ("readable" in leaderResult) {
+      rawJson = (leaderResult as { readable: string }).readable;
+    }
   }
 
+  // Double-decode: payload.readable is a JSON-encoded JSON string
   if (rawJson) {
-    const parsed = parseJsonOrNull<Record<string, unknown>>(rawJson);
-    const result = coerceForgeResult(parsed);
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(rawJson);
+      if (typeof decoded === "string") decoded = JSON.parse(decoded);
+    } catch {
+      decoded = null;
+    }
+    const result = coerceForgeResult(
+      isRecord(decoded) ? decoded : null,
+    );
     if (result) return result;
   }
   throw new Error(
