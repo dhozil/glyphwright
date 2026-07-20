@@ -125,10 +125,10 @@ Deploy the contract once, then point the frontend at it via env:
 
 ```bash
 # .env
-VITE_GLYPHWRIGHT_CONTRACT=0xd13645b92637bFf3EC97ada2b7C24dDf9EfB30AD
+VITE_GLYPHWRIGHT_CONTRACT=0xF4F4ee451A0A687cb59379d6A3913fe99D698d3E
 ```
 
-`src/lib/glyphwright.contract.ts` also carries a `FALLBACK_CONTRACT` constant pointing at the most recent deployment, so the app works out of the box even without `.env` for casual previews. Current deployment: **Studionet — `0xd13645b92637bFf3EC97ada2b7C24dDf9EfB30AD`**.
+`src/lib/glyphwright.contract.ts` also carries a `FALLBACK_CONTRACT` constant pointing at the most recent deployment, so the app works out of the box even without `.env` for casual previews. Current deployment: **Studionet — `0xF4F4ee451A0A687cb59379d6A3913fe99D698d3E`**.
 
 If neither is set, the Forge page surfaces a banner with a paste-the-address input that saves at runtime via `useGlyphwrightAccount().configureContract(addr)`.
 
@@ -147,7 +147,7 @@ Or with the CLI:
 ```bash
 genlayer network studionet
 genlayer deploy --contract contracts/glyphwright.py
-# Returns: 0xd13645b92637bFf3EC97ada2b7C24dDf9EfB30AD (Studionet)
+# Returns: 0xF4F4ee451A0A687cb59379d6A3913fe99D698d3E (Studionet)
 ```
 
 ---
