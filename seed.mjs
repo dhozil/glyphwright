@@ -7,48 +7,53 @@ const account = createAccount(PRIV_KEY)
 const client = createClient({ chain: studionet, account })
 
 const INTENTS = [
-  'A spell that freezes someone mid-sentence, their words hanging frozen as icicles in the air',
-  'A spell that turns spilled wine into a loyal liquid serpent that follows one command',
-  'A single sung note that shatters all glass within earshot, then reforms it into a shimmering bird',
-  'A reversed incantation that makes the caster\'s shadow act out their repressed emotions for all to see',
-  'A quick gesture making ink bleed off a page and rewrite the sentence as an insult in the author\'s hand',
-  'A mark traced on a door that lets the caster hear every lie told behind it for one day',
-  'A charm woven into a braid that lets the wearer breathe underwater for one hour per strand',
-  'An enchantment that makes a locked chest play a mournful ballad about whatever is inside it',
-  'A hex that causes the target\'s reflection to be three seconds ahead of their actual movements',
-  'A sigil burned into a coin that returns to the caster\'s pocket whenever spent in greed',
-  'A lullaby hummed through a keyhole that puts all occupants into a single shared dream',
-  'A ritual trading the caster\'s voice for an hour to speak through the mouth of a nearby statue',
-  'A syllabic cipher woven into a handshake that encrypts the next words exchanged between the pair',
-  'A pinch of ash blown toward a hearth that makes the fire recount the last argument it witnessed',
-  'A thread tied around a finger that lets the caster feel the nearest significant emotional residue',
-  'A whisper to a dying ember that reignites only when a promise is about to be broken nearby',
-  'A three-note whistle that makes shed tears coalesce into a pearl holding the memory of that cry',
-  'A tap on a mirror that lets the caster step through to the exact same room as one hour ago',
-  'A breath exhaled over a wound that accelerates healing but leaves a scar of the patient\'s fear',
-  'A melodic snap that locks the last door touched and only unlocks when a sincere secret is told',
+  'Freezes someone mid-sentence, words hanging as icicles',
+  'Spilled wine becomes a loyal liquid serpent',
+  'A note shatters glass and reforms it into a bird',
+  'The caster\'s shadow acts out repressed emotions',
+  'Ink bleeds off a page and rewrites as an insult',
+  'A door mark lets the caster hear lies told behind it',
+  'A braid charm for breathing underwater',
+  'A locked chest plays a ballad about its contents',
+  'Reflection moves three seconds ahead of the target',
+  'A coin returns when spent in greed',
+  'A lullaby through a keyhole creates a shared dream',
+  'Trade voice to speak through a statue for an hour',
+  'A handshake cipher encrypts the next words exchanged',
+  'Ash blown at a hearth makes fire recall the last argument',
+  'A finger thread feels the nearest emotional residue',
+  'A whisper reignites an ember when a promise breaks',
+  'Tears become a pearl holding the memory of that cry',
+  'Tap a mirror to step through to the same room an hour ago',
+  'A healing breath leaves a scar of the patient\'s fear',
+  'A snap locks a door until a sincere secret is told',
 ]
 
 async function main() {
-  // 1. Submit all 20 forges at once (fire & collect hashes)
-  console.log('=== Submitting 20 forges ===')
-  const hashes = []
-  for (const intent of INTENTS) {
-    const hash = await client.writeContract({
-      address: CONTRACT,
-      functionName: 'forge_spell',
-      args: [intent],
-    })
-    console.log(`  ${hash.slice(0, 18)}... | "${intent.slice(0, 55)}..."`)
-    hashes.push(hash)
-  }
+  // Check existing
+  const r = await client.readContract({
+    address: CONTRACT,
+    functionName: 'get_spells_by_owner',
+    args: [account.address],
+  })
+  const existing = JSON.parse(r || '[]')
+  const existingIntents = new Set(existing.map(s => s.intent?.trim().toLowerCase()))
+  console.log(`Existing: ${existing.length} spells (${existing.filter(s => s.consensus.verdict === 'FORGED').length} forged)\n`)
 
-  // 2. Wait for each in sequence with very long timeout
-  console.log('\n=== Waiting for forges to be accepted ===')
-  for (const h of hashes) {
-    try {
+  // Forge only intents not yet forged by this account
+  const toForge = INTENTS.filter(intent => !existingIntents.has(intent.toLowerCase()))
+  console.log(`Need to forge: ${toForge.length} more\n`)
+
+  if (toForge.length > 0) {
+    console.log('=== Forging ===')
+    for (const intent of toForge) {
+      const hash = await client.writeContract({
+        address: CONTRACT,
+        functionName: 'forge_spell',
+        args: [intent],
+      })
       const tx = await client.waitForTransactionReceipt({
-        hash: h,
+        hash,
         status: 2,
         retries: 600,
         interval: 3000,
@@ -62,24 +67,20 @@ async function main() {
           id = inner.spell_id
         } catch {}
       }
-      console.log(`  ✓ ${h.slice(0, 18)}... → ${id}`)
-    } catch {
-      console.log(`  … ${h.slice(0, 18)}... (still processing)`)
+      console.log(`  ✓ ${id}: "${intent.slice(0, 40)}..."`)
     }
   }
 
-  // 3. Check what we got
-  const r = await client.readContract({
+  // List all forged spells
+  const updated = await client.readContract({
     address: CONTRACT,
     functionName: 'get_spells_by_owner',
     args: [account.address],
   })
-  const spells = JSON.parse(r || '[]')
+  const spells = JSON.parse(updated || '[]')
   const forged = spells.filter(s => s.consensus.verdict === 'FORGED')
-  console.log(`\nForged: ${forged.length}/${spells.length}`)
+  console.log(`\n=== Listing ${forged.length} spells ===`)
 
-  // 4. List all forged spells
-  console.log('\n=== Listing spells ===')
   for (const s of forged) {
     const price = BigInt(3 + Math.floor(Math.random() * 28)) * 10n ** 18n
     try {
@@ -96,13 +97,15 @@ async function main() {
       })
       console.log(`  ✓ ${s.id}: ${s.spellName} — ${price / 10n**18n} GEN`)
     } catch (e) {
-      const m = (e.message || '').slice(0, 80)
-      if (m.includes('already listed')) console.log(`  - ${s.id}: already listed`)
-      else console.log(`  ✗ ${s.id}: ${m}`)
+      if ((e.message || '').includes('already listed')) {
+        console.log(`  - ${s.id}: already listed`)
+      } else {
+        console.log(`  ✗ ${s.id}: ${e.message?.slice(0, 60)}`)
+      }
     }
   }
 
-  // 5. Final market summary
+  // Summary
   const listings = await client.readContract({
     address: CONTRACT,
     functionName: 'get_active_listings',
@@ -110,18 +113,13 @@ async function main() {
   })
   const active = JSON.parse(listings || '[]')
   console.log(`\n=== Market: ${active.length} listings ===`)
-  let total = 0n
   for (const l of active) {
-    const p = BigInt(l.price || '0')
-    total += p
     const sp = l.spell || {}
     const votes = sp.votes || []
     const approved = votes.filter(v => v.approve).length
     const appr = votes.length ? Math.round((approved / votes.length) * 100) : 0
-    const owner = (sp.owner || '').slice(0, 6)
-    console.log(`  ${l.id} ${sp.spellName || '?'} ${p / 10n**18n} GEN APPR ${appr}% [${owner}..]`)
+    console.log(`  ${l.id}: ${sp.spellName || '?'} — ${BigInt(l.price||'0') / 10n**18n} GEN (${appr}%)`)
   }
-  console.log(`\nTotal value: ${total / 10n**18n} GEN`)
 }
 
-main().catch(e => console.error('FATAL:', e))
+main().catch(e => console.error('FATAL:', e.message?.slice(0, 200)))
