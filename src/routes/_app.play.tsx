@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   forgeSpell,
+  approvalFromVotes,
   type ForgeResult,
 } from "@/lib/glyphwright.contract";
 import { useGlyphwrightAccount } from "@/lib/wallet";
@@ -242,7 +243,7 @@ function SpellResult({ result }: { result: ForgeResult }) {
           />
           <Stat
             label="Approval"
-            value={Math.round(consensus.approval * 100)}
+            value={approvalFromVotes(result.votes)}
             suffix="%"
             accent={forged ? "text-emerald-400" : "text-destructive"}
           />

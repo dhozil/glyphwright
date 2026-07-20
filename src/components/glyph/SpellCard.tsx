@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import type { Spell, Vote } from "@/lib/glyphwright.contract";
+import { approvalFromVotes } from "@/lib/glyphwright.contract";
 import { ELEMENT_HUE, RARITY_RING } from "./constants";
 
 export function Stat({
@@ -75,7 +76,7 @@ export function GrimoireCard({
       <div className="mt-2 flex gap-3 text-xs text-muted-foreground">
         <span>PWR {spell.consensus.power}</span>
         <span>MANA {spell.consensus.mana_cost}</span>
-        <span>APPR {Math.round(spell.consensus.approval * 100)}%</span>
+        <span>APPR {approvalFromVotes(spell.votes)}%</span>
       </div>
       <div className="mt-2 font-mono text-[10px] text-muted-foreground break-all">
         {spell.id} · {new Date(spell.forged_at * 1000).toLocaleDateString()}

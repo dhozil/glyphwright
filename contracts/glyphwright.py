@@ -266,7 +266,7 @@ class Glyphwright(gl.Contract):
             "mana_cost": _avg([v["mana_cost"] for v in votes_data]),
             "element":   _mode([v["element"] for v in votes_data]),
             "rarity":    _mode([v["rarity"] for v in votes_data]),
-            "approval":  approval_bp // 10000,
+            "approval":  approval_bp // 100,  # 0..100 (percentage)
             "verdict":   verdict,
         }
 

@@ -241,7 +241,7 @@ export type Consensus = {
   mana_cost: number;
   element: string;
   rarity: string;
-  approval: number; // 0..1
+  approval: number; // 0..100
   verdict: "FORGED" | "REJECTED";
 };
 
@@ -278,6 +278,12 @@ export type Listing = {
   listed_at: number;
   spell: Spell;
 };
+
+/** Compute approval percentage from votes. Works even if contract stores stale value. */
+export function approvalFromVotes(votes: Vote[]): number {
+  if (!votes.length) return 0;
+  return Math.round((votes.filter(v => v.approve).length / votes.length) * 100);
+}
 
 // ---------- Result coercion -----------------------------------------------
 
