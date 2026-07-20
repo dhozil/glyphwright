@@ -1,7 +1,7 @@
 import { createClient, createAccount } from 'genlayer-js'
 import { studionet } from 'genlayer-js/chains'
 
-const CONTRACT = '0xF4F4ee451A0A687cb59379d6A3913fe99D698d3E'
+const CONTRACT = '0xe0d7385b9E15FF4b4EBFf7A15e293F290ecA0e29'
 
 // The burner account from seed.mjs
 const PRIV_KEY = '0x499b5c7cf2e472fe929eaf7223366b5efa2cc1eafb2573ed30ff52144617fe4d'
