@@ -76,7 +76,7 @@ def _clamp_in(value: str, allowed: list, fallback: str) -> str:
 
 
 def _avg(xs: list) -> int:
-    return round(sum(xs) / len(xs))
+    return sum(xs) // len(xs)
 
 
 def _mode(xs: list) -> str:
@@ -266,7 +266,7 @@ class Glyphwright(gl.Contract):
             "mana_cost": _avg([v["mana_cost"] for v in votes_data]),
             "element":   _mode([v["element"] for v in votes_data]),
             "rarity":    _mode([v["rarity"] for v in votes_data]),
-            "approval":  approval_bp / 10000,
+            "approval":  approval_bp // 10000,
             "verdict":   verdict,
         }
 
